@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multilingual Learning Assistant</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #f8fafc;
+            --text: #1e293b;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.5;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg);
+            color: var(--text);
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        h1 { font-size: 1.5rem; margin-bottom: 1.5rem; text-align: center; color: var(--primary); }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        input, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            margin-top: 1.5rem;
+        }
+        button {
+            padding: 0.75rem 0.5rem;
+            border: none;
+            border-radius: 6px;
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        button:disabled { background: #94a3b8; }
+        #output {
+            margin-top: 2rem;
+            padding: 1rem;
+            border-top: 2px solid #f1f5f9;
+            min-height: 100px;
+            white-space: pre-wrap;
+        }
+        .loading { color: #64748b; font-style: italic; }
+        .error { color: #dc2626; background: #fee2e2; padding: 0.5rem; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Learning Assistant</h1>
+    
+    <div class="form-group">
+        <label for="topic">Topic</label>
+        <input type="text" id="topic" placeholder="e.g. Photosynthesis">
+    </div>
+
+    <div class="form-group">
+        <label for="language">Language</label>
+        <select id="language">
+            <option value="English">English</option>
+            <option value="Telugu">Telugu (తెలుగు)</option>
+            <option value="Hindi">Hindi (हिन्दी)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="grade">Grade Level</label>
+        <select id="grade">
+            <option value="Elementary School">Elementary School</option>
+            <option value="Middle School" selected>Middle School</option>
+            <option value="High School">High School</option>
+            <option value="University">University</option>
+        </select>
+    </div>
+
+    <div class="button-group">
+        <button onclick="handleRequest('explain')">Explain</button>
+        <button onclick="handleRequest('summary')">Summarize</button>
+        <button onclick="handleRequest('quiz')">Quiz</button>
+    </div>
+
+    <div id="output">Results will appear here...</div>
+</div>
+
+<script>
+    const API_BASE = "http://localhost:5000/api";
+    const outputDiv = document.getElementById('output');
+
+    async function handleRequest(type) {
+        const topic = document.getElementById('topic').value;
+        const language = document.getElementById('language').value;
+        const grade = document.getElementById('grade').value;
+
+        if (!topic && type !== 'summary') {
+            alert("Please enter a topic");
+            return;
+        }
+
+        outputDiv.innerHTML = '<span class="loading">Processing with AI...</span>';
+        
+        const payload = { topic, language, grade };
+        if (type === 'summary') payload.text = outputDiv.innerText;
+
+        try {
+            const response = await fetch(`${API_BASE}/${type}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            
+            if (data.error) {
+                outputDiv.innerHTML = `<div class="error">${data.error}</div>`;
+            } else {
+                displayData(data, type);
+            }
+        } catch (err) {
+            outputDiv.innerHTML = `<div class="error">Server Connection Error. Ensure backend is running on port 5000.</div>`;
+        }
+    }
+
+    function displayData(data, type) {
+        if (type === 'explain') {
+            outputDiv.innerHTML = `<h3>${data.title || 'Explanation'}</h3><p>${data.explanation}</p>
+                                   <small><b>Terms:</b> ${data.key_terms?.join(', ')}</small>`;
+        } else if (type === 'summary') {
+            outputDiv.innerHTML = `<h3>Summary</h3><p>${data.summary}</p>
+                                   <ul>${data.bullet_points?.map(p => `<li>${p}</li>`).join('')}</ul>`;
+        } else if (type === 'quiz') {
+            const quizHtml = data.quiz.map((q, i) => `
+                <p><b>Q${i+1}: ${q.question}</b><br>
+                ${q.options.map(o => `&bull; ${o}<br>`).join('')}
+                <details><summary>Show Answer</summary><i>${q.correct_answer}</i></details></p>
+            `).join('');
+            outputDiv.innerHTML = `<h3>Quiz</h3>${quizHtml}`;
+        }
+    }
+</script>
+
+</body>
+</html>
